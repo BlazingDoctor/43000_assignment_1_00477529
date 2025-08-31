@@ -1,1 +1,2 @@
-# 43000_assignment_1_00477529
+python3 run.py bfs
+python3 run.py ids
