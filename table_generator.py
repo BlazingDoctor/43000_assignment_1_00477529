@@ -1,17 +1,15 @@
-# File: generate_table.py
-
+import os
 from PIL import Image, ImageDraw, ImageFont
 from typing import Dict, Any, Tuple, List
 
-def _draw_single_table(draw: ImageDraw.Draw, y_offset: int, instance_data: Dict, fonts: Dict):
-    """Helper function to draw one complete table at a vertical offset."""
+def _draw_single_table(draw: ImageDraw.Draw, instance_data: Dict, fonts: Dict):
+    """Helper function to draw one complete table on the provided canvas."""
     
     results_data = instance_data['results_data']
     domain = instance_data['domain']
     initial_state = instance_data['initial_state']
     
     algorithms = list(results_data.keys())
-    num_algorithms = len(algorithms)
     
     metrics_order = [
         "Solution Cost", "Solution Depth", "Nodes Generated", 
@@ -20,7 +18,6 @@ def _draw_single_table(draw: ImageDraw.Draw, y_offset: int, instance_data: Dict,
     
     # --- Configuration ---
     margin = 40
-    title_height = 80
     row_height = 50
     metric_col_width = 240
     data_col_width = 200
@@ -32,7 +29,7 @@ def _draw_single_table(draw: ImageDraw.Draw, y_offset: int, instance_data: Dict,
     line_color = (200, 200, 200)
     text_color = (50, 50, 50)
     
-    img_width = margin * 2 + metric_col_width + (num_algorithms * data_col_width)
+    img_width = margin * 2 + metric_col_width + (len(algorithms) * data_col_width)
 
     # --- Draw Title ---
     title_text = f"{domain} Performance Comparison"
@@ -40,15 +37,15 @@ def _draw_single_table(draw: ImageDraw.Draw, y_offset: int, instance_data: Dict,
     
     title_bbox = draw.textbbox((0,0), title_text, font=fonts['title'])
     title_x = (img_width - (title_bbox[2] - title_bbox[0])) / 2
-    draw.text((title_x, y_offset + 25), title_text, font=fonts['title'], fill=title_color)
+    draw.text((title_x, 25), title_text, font=fonts['title'], fill=title_color)
     
     subtitle_bbox = draw.textbbox((0,0), subtitle_text, font=fonts['body'])
     subtitle_x = (img_width - (subtitle_bbox[2] - subtitle_bbox[0])) / 2
-    draw.text((subtitle_x, y_offset + 65), subtitle_text, font=fonts['body'], fill=text_color)
+    draw.text((subtitle_x, 65), subtitle_text, font=fonts['body'], fill=text_color)
 
     # --- Draw the Table ---
-    table_y_start = y_offset + title_height + margin
-    col_widths = [metric_col_width] + [data_col_width] * num_algorithms
+    table_y_start = 80 + margin
+    col_widths = [metric_col_width] + [data_col_width] * len(algorithms)
     headers = ["Metric"] + algorithms
 
     # Header Row
@@ -87,30 +84,22 @@ def _draw_single_table(draw: ImageDraw.Draw, y_offset: int, instance_data: Dict,
         current_x += width
     draw.line([(current_x, table_y_start), (current_x, table_end_y)], fill=line_color, width=1)
 
-def generate_combined_table_image(instance_results: List[Dict[str, Any]]):
+def generate_table_images(instance_results: List[Dict[str, Any]]):
+    """
+    Generates a separate image file for each instance's results and saves
+    them in a 'table_results' directory.
+    """
     if not instance_results:
         print("No results data provided to generate table.")
         return
 
-    # --- Calculate total image size ---
-    num_instances = len(instance_results)
-    first_results = instance_results[0]['results_data']
-    num_algorithms = len(first_results.keys())
-
-    margin = 40
-    table_spacing = 30 
-    metric_col_width = 240
-    data_col_width = 200
-    single_table_height = (80 + margin) + (6 * 50) # Title area + 6 rows
+    # --- Create output directory if it doesn't exist ---
+    output_dir = "table_results"
+    if not os.path.exists(output_dir):
+        os.makedirs(output_dir)
+        print(f"Created directory: '{output_dir}'")
     
-    img_width = margin * 2 + metric_col_width + (num_algorithms * data_col_width)
-    img_height = (num_instances * (single_table_height + table_spacing)) - table_spacing + margin
-
-    # --- Setup canvas and fonts ---
-    bg_color = (245, 245, 245)
-    img = Image.new('RGB', (img_width, img_height), color=bg_color)
-    draw = ImageDraw.Draw(img)
-    
+    # --- Load fonts once ---
     try:
         fonts = {
             'title': ImageFont.truetype("arialbd.ttf", 28),
@@ -125,12 +114,28 @@ def generate_combined_table_image(instance_results: List[Dict[str, Any]]):
             'body': ImageFont.load_default()
         }
 
-    # --- Draw each table ---
+    # --- Loop through each instance and create a separate image ---
     for i, instance_data in enumerate(instance_results):
-        y_offset = i * (single_table_height + table_spacing)
-        _draw_single_table(draw, y_offset, instance_data, fonts)
+        num_algorithms = len(instance_data['results_data'].keys())
+        margin = 40
+        metric_col_width = 240
+        data_col_width = 200
         
-    # --- Save Image ---
-    output_filename = "performance_comparison_multiple.png"
-    img.save(output_filename)
-    print(f"\nCombined table image saved successfully as '{output_filename}'")
+        # Calculate dimensions for a single table image
+        img_width = margin * 2 + metric_col_width + (num_algorithms * data_col_width)
+        img_height = (80 + margin) + (6 * 50) + margin # Title area + 6 rows + bottom margin
+
+        # Create canvas for this instance
+        img = Image.new('RGB', (img_width, img_height), color=(245, 245, 245))
+        draw = ImageDraw.Draw(img)
+        
+        # Draw the table content
+        _draw_single_table(draw, instance_data, fonts)
+        
+        # Save the individual image file
+        output_filename = f"performance_instance_{i+1}.png"
+        full_path = os.path.join(output_dir, output_filename)
+        img.save(full_path)
+        print(f"  - Saved table for instance {i+1} to '{full_path}'")
+
+    print(f"\nGenerated {len(instance_results)} table image(s) in the '{output_dir}' directory.")
