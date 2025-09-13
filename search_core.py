@@ -1,4 +1,5 @@
 import collections
+import heapq
 from typing import Any, Dict, Optional, Tuple, List
 
 class Node:
@@ -13,24 +14,65 @@ class Node:
 
     def __repr__(self) -> str:
         return f"<Node {self.state}>"
+    
+def astar(problem, heuristic_variant: str) -> Tuple[Optional[Node], Dict[str, int]]:
+    metrics = {
+        "nodes_generated": 0,
+        "nodes_expanded": 0,
+        "max_frontier_size": 0,
+    }
+    
+    counter = 0
+    start_node = Node(problem.initial_state)
+    h_start = problem.heuristic(start_node.state, heuristic_variant)
+    f_start = start_node.path_cost + h_start
+    
+    frontier = [(f_start, counter, start_node)]
+    counter += 1
+    heapq.heapify(frontier)
+    
+    explored = {start_node.state: start_node.path_cost}
+    
+    metrics["nodes_generated"] += 1
+    metrics["max_frontier_size"] = 1
 
-    def expand(self, problem) -> List['Node']:
-        return [
-            self.child_node(problem, action)
-            for action in problem.actions(self.state)
-        ]
-
-    def child_node(self, problem, action: str) -> Optional['Node']:
-        next_state = problem.result(self.state, action)
-        if next_state is None:
-            return None
+    while frontier:
+        _, _, node = heapq.heappop(frontier)
+        if node.path_cost > explored[node.state]:
+            continue
             
-        return Node(
-            next_state, 
-            self, 
-            action,
-            self.path_cost + problem.step_cost(self.state, action)
-        )
+        metrics["nodes_expanded"] += 1
+
+        if problem.is_goal(node.state):
+            return node, metrics
+
+        for action in problem.actions(node.state):
+            child_state = problem.result(node.state, action)
+            
+            if child_state is None:
+                continue
+
+            g_cost_child = node.path_cost + problem.step_cost(node.state, action)
+
+            if child_state not in explored or g_cost_child < explored[child_state]:
+                explored[child_state] = g_cost_child
+                
+                h_cost_child = problem.heuristic(child_state, heuristic_variant)
+                f_cost_child = g_cost_child + h_cost_child
+
+                child_node = Node(
+                    child_state,
+                    node,
+                    action,
+                    g_cost_child
+                )
+                
+                heapq.heappush(frontier, (f_cost_child, counter, child_node))
+                counter += 1
+                metrics["nodes_generated"] += 1
+                metrics["max_frontier_size"] = max(metrics["max_frontier_size"], len(frontier))
+
+    return None, metrics
 
 def bfs(problem) -> Tuple[Optional[Node], Dict[str, int]]:
     metrics = {
