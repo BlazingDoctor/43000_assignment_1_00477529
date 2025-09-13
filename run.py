@@ -1,5 +1,3 @@
-# File: run.py
-
 import argparse
 import sys
 import os
@@ -9,7 +7,7 @@ script_dir = os.path.dirname(os.path.abspath(__file__))
 sys.path.insert(0, script_dir)
 
 from search_core import Node, bfs, ids, astar
-from table_generator import generate_combined_table_image
+from table_generator import generate_table_images
 from domains.puzzle_generator import generate_puzzle
 
 def format_wgc_path(node: Node) -> List[Tuple[Any, str, Any]]:
@@ -127,7 +125,7 @@ def main():
         })
 
     if args.gentable:
-        generate_combined_table_image(all_instance_results)
+        generate_table_images(all_instance_results)
     else:
         for instance in all_instance_results:
             print(f"\n--- CONSOLE REPORT: Instance starting {instance['initial_state']} ---")
